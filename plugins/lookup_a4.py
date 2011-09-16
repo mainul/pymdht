@@ -146,7 +146,7 @@ class GetPeersLookup(object):
 
     def __init__(self, msg_f, my_id,
                  lookup_id, info_hash,
-                 callback_f, bt_port=0):
+                 callback_f, bt_port, scrape):
         self.msg_f = msg_f
         
         self.bootstrap_alpha = 4
@@ -280,7 +280,7 @@ class MaintenanceLookup(GetPeersLookup):
 
     def __init__(self, msg_f, my_id, target):
         GetPeersLookup.__init__(self, msg_f, my_id,
-                                None, target, None, 0)
+                                None, target, None, 0, False)
         self._target = target
         self.bootstrap_alpha = 4
         self.normal_alpha = 4
@@ -296,10 +296,10 @@ class LookupManager(object):
         self.my_id = my_id
         self.msg_f = msg_f
 
-    def get_peers(self, lookup_id, info_hash, callback_f, bt_port=0):
+    def get_peers(self, lookup_id, info_hash, callback_f, bt_port, scrape):
         lookup_q = GetPeersLookup(self.msg_f, self.my_id,
                                   lookup_id, info_hash,
-                                  callback_f, bt_port)
+                                  callback_f, bt_port, scrape)
         return lookup_q
 
     def maintenance_lookup(self, target=None):

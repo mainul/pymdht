@@ -89,7 +89,7 @@ class Controller:
     def on_stop(self):
         self._experimental_m.on_stop()
 
-    def get_peers(self, lookup_id, info_hash, callback_f, bt_port=0):
+    def get_peers(self, lookup_id, info_hash, callback_f, bt_port, scrape):
         """
         Start a get\_peers lookup whose target is 'info\_hash'. The handler
         'callback\_f' will be called with two arguments ('lookup\_id' and a
@@ -104,7 +104,8 @@ class Controller:
         self._pending_lookups.append(self._lookup_m.get_peers(lookup_id,
                                                               info_hash,
                                                               callback_f,
-                                                              bt_port))
+                                                              bt_port,
+                                                              scrape))
         queries_to_send =  self._try_do_lookup()
         datagrams_to_send = self._register_queries(queries_to_send)
         return datagrams_to_send

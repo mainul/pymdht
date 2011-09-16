@@ -60,7 +60,7 @@ class Pymdht:
         # No need to call_asap because the minitwisted thread is dead by now
         self.controller.on_stop()
     
-    def get_peers(self, lookup_id, info_hash, callback_f, bt_port=0):
+    def get_peers(self, lookup_id, info_hash, callback_f, bt_port=0, scrape=False):
         """ Start a get peers lookup. Return a Lookup object.
         
         The info_hash must be an identifier.Id object.
@@ -79,7 +79,7 @@ class Pymdht:
         """
         self.reactor.call_asap(self.controller.get_peers,
                                lookup_id, info_hash,
-                               callback_f, bt_port)
+                               callback_f, bt_port, scrape)
 
     def print_routing_table_stats(self):
         self.controller.print_routing_table_stats()
