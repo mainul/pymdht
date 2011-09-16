@@ -138,10 +138,7 @@ class _LookupQueue(object):
 
    
 class GetPeersLookup(object):
-    """DO NOT use underscored variables, they are thread-unsafe.
-    Variables without leading underscore are thread-safe.
-
-    All nodes in bootstrap_nodes MUST have ID.
+    """
     """
 
     def __init__(self, msg_f, my_id,
