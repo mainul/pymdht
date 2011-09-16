@@ -5,16 +5,17 @@
 import sys
 import threading
 import logging
-try:
-    import core.ptime as time
-    import core.identifier as identifier
-    import core.message as message
-except ImportError:
-    import Tribler.Core.DecentralizedTracking.pymdht.core.ptime as time
-    from Tribler.Core.DecentralizedTracking.pymdht.core.querier import Query
-    import Tribler.Core.DecentralizedTracking.pymdht.core.identifier as identifier
-    import Tribler.Core.DecentralizedTracking.pymdht.core.message as message
 
+import os, sys
+this_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.join(this_dir, '..')
+sys.path.append(root_dir)
+
+import core.ptime as time
+import core.identifier as identifier
+import core.message as message
+
+sys.path.pop()
 
 logger = logging.getLogger('dht')
 
@@ -45,7 +46,7 @@ class _LookupQueue(object):
         self.queued_qnodes = []
         self.responded_qnodes = []
 
-        self.max_queued_qnodes = 16
+#        self.max_queued_qnodes = 16
         self.max_responded_qnodes = 16
 
         self.last_query_ts = time.time()
@@ -103,9 +104,9 @@ class _LookupQueue(object):
                 self.queued_qnodes.append(qnode)
                 self.queued_ips.add(qnode.node.ip)
         self.queued_qnodes.sort()
-        for qnode  in self.queued_qnodes[self.max_queued_qnodes:]:
-            self.queued_ips.remove(qnode.node.ip)
-        del self.queued_qnodes[self.max_queued_qnodes:]
+#        for qnode  in self.queued_qnodes[self.max_queued_qnodes:]:
+#            self.queued_ips.remove(qnode.node.ip)
+#        del self.queued_qnodes[self.max_queued_qnodes:]
 
     def _pop_nodes_to_query(self, max_nodes):
         if len(self.responded_qnodes) > MARK_INDEX:
@@ -140,7 +141,7 @@ class GetPeersLookup(object):
         self.bootstrap_alpha = 16
         self.normal_alpha = 16
         self.normal_m = 1
-        self.slowdown_alpha = 4
+        self.slowdown_alpha = 16
         self.slowdown_m = 1
         
         logger.debug('New lookup (info_hash: %r)' % info_hash)

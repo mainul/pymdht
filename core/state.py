@@ -8,18 +8,21 @@ FORMAT
 The first line contains this node's identifier
 
 The rest of the lines contain routing table nodes
-log_distance hex_id ip port rtt
+log_distance hex_id ip port rtt(ms) uptime(s)
 
 EXAMPLE
-008b9c909a072b8745703736e4c835925e323742
-136 008b9df33988efc53a140eadd478bd15b4f27916 72.91.157.171 21294 84.053993
-138 008b9bab35e106b40077877c74b454f314e2293b 39.272.248.7 33079 140.555859
-
+f33d5f1aa60c6298db205b967525d802a60f9902
+137 f33d5c00b165dcf0358ed4fcaea05a54848f1a95   99.192.23.157 38453 1088  43680
+139 f33d563ce084daf4acbe909c48b649ac7a09e25a   109.237.98.97 24996   84  19376
+139 f33d52fa381be82ca8ba00bb4e297ba2205fc4bc    46.55.30.252 12580   92   8982
+139 f33d558dfadb8d80ed8ff7a6060ae9b7ab1fa930  71.227.220.238 41988  233  19206
+139 f33d57845353732838b4dabcfce37216ed56a8fa    66.122.12.68 45682  239  46375
 """
 
 import sys
 import logging
 
+import ptime as time
 from identifier import Id
 from node import Node
 
@@ -30,10 +33,15 @@ def save(my_id, rnodes, filename):
     f = open(filename, 'w')
     f.write('%r\n' % my_id)
     for rnode in rnodes:
-        f.write('%d %r %s %d %f\n' % (
+        if rnode.rtt == 99:
+            rtt = rnode.real_rtt
+        else:
+            rtt = rnode.rtt
+        f.write('%d %r %15s %5d %4d %6d\n' % (
                 my_id.log_distance(rnode.id),
                 rnode.id, rnode.addr[0], rnode.addr[1],
-                rnode.rtt * 1000))
+                rtt * 1000,
+                time.time() -rnode.creation_ts ))
     f.close()
 
 def load(filename):
@@ -44,7 +52,7 @@ def load(filename):
         hex_id = f.readline().strip()
         my_id = Id(hex_id)
         for line in f:
-            _, hex_id, ip, port, _ = line.split()
+            _, hex_id, ip, port, _, _ = line.split()
             addr = (ip, int(port))
             node_ = Node(addr, Id(hex_id))
             nodes.append(node_)

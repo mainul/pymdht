@@ -83,10 +83,10 @@ class Id(object):
 
     You can use both binary and hexadecimal strings. Example:
     
-    >>> Id('\x00' * ID_SIZE_BYTES) == Id('0' * ID_SIZE_BYTES * 2)
+    >>> Id(chr(0) * ID_SIZE_BYTES) == Id('0' * ID_SIZE_BYTES * 2)
     True
     
-    >>> Id(ord(255) * ID_SIZE_BYTES) == Id('f' * ID_SIZE_BYTES * 2)
+    >>> Id(chr(255) * ID_SIZE_BYTES) == Id('f' * ID_SIZE_BYTES * 2)
     True
     """
 
@@ -130,14 +130,14 @@ class Id(object):
                                                      other.bin_id)]
         return Id(''.join(byte_list))
 
-
+    '''
     def lineal_distance(self, other, num_bytes=4):
         result = 0
         for i in xrange(num_bytes):
             byte_dist_int = abs(ord(self._bin_id[i]) - ord(other._bin_id[i])) 
             result = result * 256 + byte_dist_int
         return result
-            
+    '''            
 
                                
     

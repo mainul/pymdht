@@ -1,6 +1,12 @@
-import sys
-from socket import inet_ntoa
+#! /usr/bin/env python
 
+
+import sys
+#sys.path.append('.')
+sys.path.append('../..')
+
+from socket import inet_ntoa
+import os
 import time
 
 import pcap
@@ -11,35 +17,79 @@ from logging import DEBUG, CRITICAL
 import core.logging_conf as lc
 lc.setup('.', CRITICAL)
 
+#import parsers.cdf as cdf
+
 print '************** Check parser config *******************'
 
-ip = '192.16.125.245'
+
+ip = '192.16.127.98'
+port = 7000
+
 conf = [
-    ['0', (ip, 7000)],
-    ['1', (ip, 7001)],
-    ['2', (ip, 7002)],
-    ['3', (ip, 7003)],
-    ['4', (ip, 7004)],
-    ['5', (ip, 7005)],
-    ['6', (ip, 7006)],
-    ['7', (ip, 7007)],
-    ['8', (ip, 7008)],
+    ['0', (ip, port+10)],
+    ['1', (ip, port+11)],
+    ['2', (ip, port+12)],
+    ['3', (ip, port+13)],
+    ['4', (ip, port+14)],
+    ['5', (ip, port+15)],
+    ['6', (ip, port+16)],
+    ['7', (ip, port+17)],
+    ['8', (ip, port+18)],
+    ['9', (ip, port+19)],
     ]
 
 multiparser_mods = [
-#    __import__('profiler.parsers.traffic_multiparser'
-#               ).parsers.traffic_multiparser,
-#    __import__('profiler.parsers.same_ip').parsers.same_ip,
-    __import__('profiler.parsers.announce').parsers.announce,
-#    __import__('profiler.parsers.infohashes').parsers.infohashes,
+'''
+   __import__('parsers.traffic_multiparser'
+               ).traffic_multiparser,
+    __import__('parsers.same_ip').same_ip,
+    __import__('parsers.multi_rtt').multi_rtt,
+'''
+    __import__('parsers.multi_bootstrap_miner').multi_rtt,
+    #__import__('parsers.announce').announce,
+    #__import__('parsers.infohashes').infohashes,
     ]
 
 parser_mods = [
-#    __import__('profiler.parsers.lookup_parser').parsers.lookup_parser,
-#    __import__('profiler.parsers.maintenance_parser'
-#               ).parsers.maintenance_parser,
-#    __import__('profiler.parsers.rtt_parser').parsers.rtt_parser,
+    __import__('parsers.get_peers').get_peers,
+    __import__('parsers.announce_peer').announce_peer,
+    __import__('parsers.find_node').find_node,
+    __import__('parsers.ping').ping,
+    __import__('parsers.ip_geo_locator').ip_geo_locator,
+    __import__('parsers.unique_ip_geo_locator').unique_ip_geo_locator,
+'''
+    __import__('parsers.lookup_parser').lookup_parser,
+    __import__('parsers.maintenance_parser'
+               ).maintenance_parser,
+    __import__('parsers.rtt_parser').rtt_parser,
+'''
     ]    
+'''
+cdf_files = [
+    'l_time',
+    'l_queries',
+    'l_queries_till_peers',
+    'l_time_closest',
+    'l_time_auth',
+    'l_num_nodes'
+'''
+    ]
+
+multiparser_cdf_files = [
+     't_rtt',
+     ]
+'''
+TIMEOUT_DELAY = 2
+
+class QueryInfo(object):
+
+    def __init__(self, ts, dst_addr, msg):
+        self.ts = ts
+        self.dst_addr = dst_addr
+        self.msg = msg
+        self.is_lookup = msg.query == message.GET_PEERS
+        
+
 
 class NodeParser(object):
 
@@ -48,15 +98,35 @@ class NodeParser(object):
         self.my_addr = my_addr
         self.parsers = [p_mod.Parser(label, my_addr)
                         for p_mod in parser_mods]
+        self.tids = {}
 
 
     def new_msg(self, ts, src_addr, dst_addr, msg):
+        related_query = None
         if self.my_addr == src_addr:
+            if msg.type == message.QUERY:
+                self.tids[msg.tid[0]] = QueryInfo(ts, dst_addr, msg)
             for parser in self.parsers:
                 parser.outgoing_msg(ts, dst_addr, msg)
         elif self.my_addr == dst_addr:
+            if msg.type == message.RESPONSE:
+                try:
+                    related_query = self.tids[msg.tid[0]]
+                except (KeyError):
+                    print '%s: parser: no query for this response' % (
+                        self.label)
+                if related_query and ts - related_query.ts > TIMEOUT_DELAY:
+                    related_query = None
+                if related_query and src_addr != related_query.dst_addr:
+                    if src_addr[0] != related_query.dst_addr[0]:
+                        print '%s: different IP: %r != %r %f' % (
+                            self.label, related_query.dst_addr, src_addr,
+                            ts - related_query.ts
+                            )
+                    related_query = None
             for parser in self.parsers:
-                parser.incoming_msg(ts, src_addr, msg)
+                parser.incoming_msg(ts, src_addr, msg, related_query)
+        return related_query
     
     def done(self):
         for parser in self.parsers:
@@ -70,19 +140,18 @@ class MultinodeParser(object):
                         for p_mod in multiparser_mods]
 
 
-    def new_msg(self, ts, src_addr, dst_addr, msg):
+    def new_msg(self, ts, src_addr, dst_addr, msg, related_query):
         if self.my_ip == src_addr[0]:
             for parser in self.parsers:
                 parser.outgoing_msg(ts, dst_addr, msg)
         if self.my_ip == dst_addr[0]:
             for parser in self.parsers:
-                parser.incoming_msg(ts, src_addr, msg)
+                parser.incoming_msg(ts, src_addr, msg, related_query)
     
     def done(self):
         for parser in self.parsers:
             parser.done()
 
-            
 class FragmentedPacket(object):
 
     def __init__(self):
@@ -169,7 +238,8 @@ def parse(filenames):
     all_parsers =  node_parsers + [multinode_parser]
 
     num_frames = 0
-    for filename in filenames:
+    try:
+     for filename in filenames:
         print '>>>>', filename
         frames = pcap.pcap(filename)
         for num_frames, (ts_absolute, frame) in enumerate(frames): 
@@ -196,25 +266,50 @@ def parse(filenames):
             except(TypeError):
                 print >>sys.stderr,'>>>ERROR:', data
                 raise
-            for parser in all_parsers:
-                parser.new_msg(ts, src_addr, dst_addr, msg)
+            related_query = None
+            for parser in node_parsers:
+                related_query =  parser.new_msg(
+                    ts, src_addr, dst_addr, msg) or related_query
+            multinode_parser.new_msg(ts, src_addr, dst_addr, msg,
+                                     related_query)
+    except (KeyboardInterrupt):
+        print 'WARNING: parsing incomplete'
     for parser in all_parsers:
         parser.done()
 
 
 if __name__ == '__main__':
-    filenames = sys.argv[1:]
-    print 'Parsing', filenames, '...'
-    print '*** Double-check the capture files order ***'
-    print 'You should type something like:'
-    print 'command name.pcap name.pcap? name.pcap??'
-    time.sleep(10)
-    parse(filenames)
-
-
     
-'''Template'''
-class Parser(object):
+    current_dir = os.getcwd()
+    try:
+        os.mkdir('parser_results')
+    except OSError:
+   	print "Existing data in parser_results will be overwriten!!!" 
+    file_prefix = os.path.basename(current_dir)[:15] + '.pcap'
+    if not os.path.isfile(file_prefix):
+        raise Exception, 'Capture file (%s) does not exist' % (file_prefix)
+    filenames = [file_prefix]
+    i = 0
+    while 1:
+        i += 1
+        filename = '%s%d' % (file_prefix, i)
+        if os.path.isfile(filename):
+            filenames.append(filename)
+        else:
+            break
+    
+    print 'Parsing', filenames, '...'
+    parse(filenames)
+    '''	
+    for filename in cdf_files:
+        for label, _ in conf:
+            cdf.cdf_file('parser_results/' + label + '.' + filename)
+    for filename in multiparser_cdf_files:
+        cdf.cdf_file('parser_results/m.' + filename)
+    '''
+    
+class _Parser(object):
+    '''Template'''
 
     def __init__(self, label, my_addr):
         self.label = label

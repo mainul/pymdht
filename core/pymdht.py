@@ -19,6 +19,7 @@ import minitwisted
 import controller
 import logging, logging_conf
 
+PYMDHT_VERSION = (11, 8, 3)
 
 class Pymdht:
     """Pymdht is the interface for the whole package.
@@ -29,29 +30,35 @@ class Pymdht:
     - state_filename: the complete path to a file to load/store node state.
     - routing_m_mod: the module implementing routing management.
     - lookup_m_mod: the module implementing lookup management.
+    - experimental_m_mod: the module implementing experimental management.
     - private_dht_name: name of the private DHT (use global DHT when None)
-    - debug_level: level of logs saved into dht.log (standard logging module).
+    - debug_level: level of logs saved into pymdht.log (standard logging module).
 
     """
-    def __init__(self, dht_addr, conf_path,
+    def __init__(self, my_node, conf_path,
                  routing_m_mod, lookup_m_mod,
+                 experimental_m_mod,
                  private_dht_name,
-                 debug_level):
+                 debug_level, id_=None):
         logging_conf.setup(conf_path, debug_level)
         state_filename = os.path.join(conf_path, controller.STATE_FILENAME)
-        self.controller = controller.Controller(dht_addr, state_filename,
+        self.controller = controller.Controller(PYMDHT_VERSION,
+                                                my_node, state_filename,
                                                 routing_m_mod,
                                                 lookup_m_mod,
+                                                experimental_m_mod,
                                                 private_dht_name)
         self.reactor = minitwisted.ThreadedReactor(
             self.controller.main_loop,
-            dht_addr[1], self.controller.on_datagram_received)
+            my_node.addr[1], self.controller.on_datagram_received)
         self.reactor.start()
 
     def stop(self):
         """Stop the DHT node."""
         #TODO: notify controller so it can do cleanup?
-        self.reactor.stop()#controller.stop)
+        self.reactor.stop()
+        # No need to call_asap because the minitwisted thread is dead by now
+        self.controller.on_stop()
     
     def get_peers(self, lookup_id, info_hash, callback_f, bt_port=0):
         """ Start a get peers lookup. Return a Lookup object.
@@ -74,12 +81,14 @@ class Pymdht:
                                lookup_id, info_hash,
                                callback_f, bt_port)
 
-    def remove_torrent(self, info_hash):
-        return
-            
     def print_routing_table_stats(self):
         self.controller.print_routing_table_stats()
 
+    def start_capture(self):
+        self.reactor.start_capture()
+        
+    def stop_and_get_capture(self):
+        return self.reactor.stop_and_get_capture()
 
     #TODO2: Future Work
     #TODO2: def add_bootstrap_node(self, node_addr, node_id=None):
