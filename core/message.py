@@ -55,6 +55,8 @@ TARGET = 'target' # Target's nodeID (find_node)
 INFO_HASH = 'info_hash' # Torrent's info_hash (get_peers and announce)
 PORT = 'port'     # BitTorrent port (announce)
 TOKEN = 'token'   # Token (announce)
+SCRAPE = 'scrape' # Scrape (BEP33)
+NOSEED = 'noseed' # Noseed (BEP33)
 
 # Valid keys for RESPONSE
 ID = 'id'         # Node's nodeID (all replies)
@@ -97,7 +99,9 @@ class MsgFactory(object):
         return msg
     
     def outgoing_find_node_query(self, dst_node, target,
-                                 lookup_obj=None, experimental_obj=None):
+                                 lookup_obj=None, experimental_obj=None,
+                                 scrape=False):
+        #FIXME(raul): scrape doesn't make sense here, remove 
         msg = OutgoingMsg(self.version_label, dst_node,
                           self.private_dht_name)
         msg.make_query(self.src_id, experimental_obj, lookup_obj)
@@ -105,11 +109,11 @@ class MsgFactory(object):
         return msg
     
     def outgoing_get_peers_query(self, dst_node, info_hash, lookup_obj=None,
-                                experimental_obj=None):
+                                experimental_obj=None, scrape=False):
         msg = OutgoingMsg(self.version_label, dst_node,
                           self.private_dht_name)
         msg.make_query(self.src_id, experimental_obj, lookup_obj)
-        msg.get_peers_query(info_hash)
+        msg.get_peers_query(info_hash, scrape)
         return msg
     
     def outgoing_announce_peer_query(self, dst_node, info_hash, port, token,
@@ -232,9 +236,11 @@ class OutgoingMsg(object):
         self._dict[ARGS][TARGET] = str(target)
         self.target = target
 
-    def get_peers_query(self, info_hash):
+    def get_peers_query(self, info_hash, scrape):
         self._dict[QUERY] = GET_PEERS
         self._dict[ARGS][INFO_HASH] = str(info_hash)
+        if scrape:
+            self._dict[ARGS][SCRAPE] = 1
 
     def announce_peer_query(self, info_hash, port, token):
         self._dict[QUERY] = ANNOUNCE_PEER
